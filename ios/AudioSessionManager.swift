@@ -364,7 +364,7 @@ class AudioSessionManager {
                 self.bufferQueue.removeFirst()
 
                 self.audioPlayerNode!.scheduleBuffer(buffer) {
-                    promise(nil)
+                    promise.resolve(nil)
 
                     let bufferDuration = Double(buffer.frameLength) / buffer.format.sampleRate
                     if !self.bufferQueue.isEmpty {

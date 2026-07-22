@@ -538,7 +538,7 @@ class SoundPlayer {
             // Schedule the buffer for playback with a completion handler
             self.audioPlayerNode.scheduleBuffer(buffer) { [weak self] in
                 guard let self = self else {
-                    promise(nil)
+                    promise.resolve(nil)
                     return
                 }
                 
@@ -552,7 +552,7 @@ class SoundPlayer {
                     
                     // Resolve the promise on main thread
                     DispatchQueue.main.async {
-                        promise(nil)
+                        promise.resolve(nil)
                     }
                     
                     // ✅ Notify delegate about playback completion
