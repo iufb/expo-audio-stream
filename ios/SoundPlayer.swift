@@ -10,7 +10,7 @@ class SoundPlayer {
     
     private let bufferAccessQueue = DispatchQueue(label: "com.expoaudiostream.bufferAccessQueue")
     
-    private var audioQueue: [(buffer: AVAudioPCMBuffer, promise: RCTPromiseResolveBlock, turnId: String)] = []  // Queue for audio segments
+    private var audioQueue: [(buffer: AVAudioPCMBuffer, promise: Promise, turnId: String)] = []  // Queue for audio segments
     // needed to track segments in progress in order to send playbackevents properly
     private var segmentsLeftToPlay: Int = 0
     private var isPlaying: Bool = false  // Tracks if audio is currently playing
@@ -439,20 +439,17 @@ class SoundPlayer {
     /// - Parameters:
     ///   - base64String: Base64 encoded audio data
     ///   - strTurnId: Identifier for the turn/segment
-    ///   - resolver: Promise resolver callback
-    ///   - rejecter: Promise rejection callback
     ///   - commonFormat: The common format of the audio data (defaults to .pcmFormatFloat32)
     /// - Throws: Error if audio processing fails
     public func play(
         audioChunk base64String: String,
         turnId strTurnId: String,
-        resolver: @escaping RCTPromiseResolveBlock,
-        rejecter: @escaping RCTPromiseRejectBlock,
+        promise: Promise,
         commonFormat: AVAudioCommonFormat = .pcmFormatFloat32
     ) throws {
         Logger.debug("New play chunk \(self.isInterrupted)")
         guard !self.isInterrupted else {
-            resolver(nil)
+            promise.resolve(nil)
             return
         }
         
@@ -469,7 +466,7 @@ class SoundPlayer {
             // Use bufferAccessQueue for all queue and segment count access to ensure thread safety
             self.bufferAccessQueue.async { [weak self] in
                 guard let self = self else {
-                    resolver(nil)
+                    promise.resolve(nil)
                     return
                 }
                 
@@ -487,7 +484,7 @@ class SoundPlayer {
                     }
                 }
                             
-                let bufferTuple = (buffer: buffer, promise: resolver, turnId: strTurnId)
+                let bufferTuple = (buffer: buffer, promise: promise, turnId: strTurnId)
                 self.audioQueue.append(bufferTuple)
                 if self.segmentsLeftToPlay == 0 && strTurnId != self.suspendSoundEventTurnId {
                     DispatchQueue.main.async {
@@ -503,7 +500,7 @@ class SoundPlayer {
             }
         } catch {
             Logger.debug("[SoundPlayer] Failed to enqueue audio chunk: \(error.localizedDescription)")
-            rejecter("ERROR_SOUND_PLAYER", "Failed to enqueue audio chunk: \(error.localizedDescription)", nil)
+            promise.reject("ERROR_SOUND_PLAYER", "Failed to enqueue audio chunk: \(error.localizedDescription)")
         }
     }
     

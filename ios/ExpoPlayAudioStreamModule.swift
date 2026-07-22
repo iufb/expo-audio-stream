@@ -188,19 +188,11 @@ public class ExpoPlayAudioStreamModule: Module, AudioStreamManagerDelegate, Micr
                 commonFormat = .pcmFormatInt16
             }
             
-            audioSessionManager.playAudio(base64chunk, turnId, commonFormat: commonFormat, resolver: { _ in
-                promise.resolve(nil)
-            }, rejecter: { code, message, error in
-                promise.reject(code ?? "ERR_UNKNOWN", message ?? "Unknown error")
-            })
+            audioSessionManager.playAudio(base64chunk, turnId, commonFormat: commonFormat, promise: promise)
         }
         
         AsyncFunction("clearPlaybackQueueByTurnId") { (turnId: String, promise: Promise) in
-            audioSessionManager.cleanPlaybackQueue(turnId, resolver: { _ in
-                promise.resolve(nil)
-            }, rejecter: { code, message, error in
-                promise.reject(code ?? "ERR_UNKNOWN", message ?? "Unknown error")
-            })
+            audioSessionManager.cleanPlaybackQueue(turnId, promise: promise)
         }
 
         AsyncFunction("pauseAudio") { (promise: Promise) in
@@ -236,11 +228,7 @@ public class ExpoPlayAudioStreamModule: Module, AudioStreamManagerDelegate, Micr
                     commonFormat = .pcmFormatInt16
                 }
         
-                try soundPlayer.play(audioChunk: base64Chunk, turnId: turnId, resolver: {
-                    _ in promise.resolve(nil)
-                }, rejecter: {code, message, error in
-                    promise.reject(code ?? "ERR_UNKNOWN", message ?? "Unknown error")
-                }, commonFormat: commonFormat)
+                try soundPlayer.play(audioChunk: base64Chunk, turnId: turnId, promise: promise, commonFormat: commonFormat)
             } catch {
                 print("Error enqueuing audio: \(error.localizedDescription)")
             }

@@ -31,7 +31,7 @@ class AudioSessionManager {
         return getOptimalAudioFormat()
     }
 
-    private var bufferQueue: [(buffer: AVAudioPCMBuffer, promise: RCTPromiseResolveBlock, turnId: String)] = []
+    private var bufferQueue: [(buffer: AVAudioPCMBuffer, promise: Promise, turnId: String)] = []
     private let bufferAccessQueue = DispatchQueue(label: "com.expoaudiostream.bufferAccessQueue") // Serial queue for thread-safe buffer access
 
     
@@ -246,15 +246,15 @@ class AudioSessionManager {
         }
     }
     
-    func playAudio(_ chunk: String, _ turnId: String, commonFormat: AVAudioCommonFormat = .pcmFormatInt16, resolver: @escaping RCTPromiseResolveBlock, rejecter: @escaping RCTPromiseRejectBlock) {
+    func playAudio(_ chunk: String, _ turnId: String, commonFormat: AVAudioCommonFormat = .pcmFormatInt16, promise: Promise) {
         do {
             guard let buffer = try processAudioChunk(chunk, commonFormat: commonFormat) else {
                 Logger.debug("[AudioSessionManager] Failed to process audio chunk")
-                rejecter("ERR_DECODE_AUDIO", "Failed to process audio chunk", nil)
+                promise.reject("ERR_DECODE_AUDIO", "Failed to process audio chunk")
                 return
             }
             
-            let bufferTuple = (buffer: buffer, promise: resolver, turnId: turnId)
+            let bufferTuple = (buffer: buffer, promise: promise, turnId: turnId)
             bufferQueue.append(bufferTuple)
             
             if self.audioPlayerNode == nil {
@@ -263,7 +263,7 @@ class AudioSessionManager {
                     try self.restartAudioSessionForPlayback()
                 } catch {
                     Logger.debug("Failed to restart Audio Session")
-                    rejecter("ERR_START_PLAYBACK_SESSION", "Failed to restart to playback session", nil)
+                    promise.reject("ERR_START_PLAYBACK_SESSION", "Failed to restart to playback session")
                     return
                 }
             }
@@ -284,11 +284,11 @@ class AudioSessionManager {
                 self.scheduleNextBuffer()
             } catch {
                 Logger.debug("Error to start playback audio chunk \(error.localizedDescription)")
-                rejecter("ERR_SCHEDULE_BUFFER", "Schedule playback failed: \(error.localizedDescription)", nil)
+                promise.reject("ERR_SCHEDULE_BUFFER", "Schedule playback failed: \(error.localizedDescription)")
             }
         } catch {
             Logger.debug("[AudioSessionManager] Error processing audio: \(error.localizedDescription)")
-            rejecter("ERR_PROCESS_AUDIO", "Failed to process audio: \(error.localizedDescription)", nil)
+            promise.reject("ERR_PROCESS_AUDIO", "Failed to process audio: \(error.localizedDescription)")
         }
     }
     
@@ -307,7 +307,7 @@ class AudioSessionManager {
         promise.resolve(nil)
     }
     
-    func cleanPlaybackQueue(_ turnId: String, resolver: @escaping RCTPromiseResolveBlock, rejecter: @escaping RCTPromiseRejectBlock) {
+    func cleanPlaybackQueue(_ turnId: String, promise: Promise) {
         if !self.bufferQueue.isEmpty {
             Logger.debug("Clearing only items for turn id \(turnId)")
             self.bufferQueue.removeAll(where: { $0.turnId == turnId } )
@@ -315,7 +315,7 @@ class AudioSessionManager {
         } else {
             Logger.debug("Queue is empty")
         }
-        resolver(nil)
+        promise.resolve(nil)
     }
     
     func pauseAudio(promise: Promise) {
