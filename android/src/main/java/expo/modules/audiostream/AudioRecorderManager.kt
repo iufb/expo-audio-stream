@@ -219,11 +219,11 @@ class AudioRecorderManager(
         }
     }
 
-    fun stopRecording(promise: Promise) {
+    private fun stopRecordingInternal(onResolve: (Any?) -> Unit, onReject: (String, String, Exception) -> Unit) {
         synchronized(audioRecordLock) {
             if (!isRecording.get()) {
                 Log.e(Constants.TAG, "Recording is not active")
-                promise.resolve(null)
+                onResolve(null)
                 return
             }
 
@@ -268,16 +268,22 @@ class AudioRecorderManager(
                 // Clean up all resources
                 cleanupResources()
                 
-                // Resolve promise with the result
-                promise.resolve(result)
+                onResolve(result)
                 
             } catch (e: Exception) {
                 Log.d(Constants.TAG, "Failed to stop recording", e)
                 // Make sure to clean up even if there's an error
                 cleanupResources()
-                promise.reject("STOP_FAILED", "Failed to stop recording", e)
+                onReject("STOP_FAILED", "Failed to stop recording", e)
             }
         }
+    }
+
+    fun stopRecording(promise: Promise) {
+        stopRecordingInternal(
+            onResolve = { result -> promise.resolve(result) },
+            onReject = { code, message, error -> promise.reject(code, message, error) }
+        )
     }
 
     fun pauseRecording(promise: Promise) {
@@ -440,19 +446,14 @@ class AudioRecorderManager(
         try {
             // If recording is active, stop it properly
             if (isRecording.get()) {
-                // Create a simple promise to handle the result without callback
-                val dummyPromise = object : Promise {
-                    override fun resolve(value: Any?) {
+                stopRecordingInternal(
+                    onResolve = {
                         Log.d(Constants.TAG, "Recording stopped during release")
+                    },
+                    onReject = { _, message, error ->
+                        Log.e(Constants.TAG, "Error stopping recording during release: $message", error)
                     }
-                    
-                    override fun reject(code: String?, message: String?, cause: Throwable?) {
-                        Log.e(Constants.TAG, "Error stopping recording during release: $message", cause)
-                    }
-                }
-                
-                // Use stopRecording which will handle full cleanup
-                stopRecording(dummyPromise)
+                )
             } else {
                 // Not recording, just clean up resources
                 cleanupResources()
